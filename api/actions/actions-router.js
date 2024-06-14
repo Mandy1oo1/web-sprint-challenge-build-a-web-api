@@ -1,82 +1,45 @@
-// Write your "actions" router here!
-const express = require('express');
-const Actions = require('./actions-model');
-const Projects = require('../projects/projects-model');
-const router = express.Router();
+const router = require('express').Router();
+const Action = require('./actions-model');
+const md = require('./actions-middleware');
 
-// [GET] /api/actions
-router.get('/', async (req, res) => {
-    try {
-        const actions = await Actions.get();
-        res.status(200).json(actions);
-    } catch (err) {
-        res.status(500).json({ message: "Failed to get actions" });
-    }
+router.get('/', async (req, res, next) => {
+  try {
+    const actions = await Action.get();
+    res.status(200).json(actions);
+  } catch (error) {
+    next({ message: 'Error getting the list of actions' });
+  }
 });
 
-// [GET] /api/actions/:id
-router.get('/:id', async (req, res) => {
-    try {
-        const action = await Actions.get(req.params.id);
-        if (action) {
-            res.status(200).json(action);
-        } else {
-            res.status(404).json({ message: "Action not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to get action" });
-    }
+router.get('/:id', md.checkActionId, async (req, res) => {
+  res.json(req.action)
 });
 
-// [POST] /api/actions
-router.post('/', async (req, res) => {
-    const { project_id, description, notes } = req.body;
-    if (!project_id || !description || !notes) {
-        return res.status(400).json({ message: "Missing required fields" });
-    }
-    try {
-        const project = await Projects.get(project_id);
-        if (project) {
-            const newAction = await Actions.insert(req.body);
-            res.status(201).json(newAction);
-        } else {
-            res.status(400).json({ message: "Invalid project ID" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to create action" });
-    }
+router.post('/', md.checkActionCreatePayload, async (req, res, next) => {
+  try {
+    const inserted = await Action.insert(req.body);
+    res.status(201).json(inserted);
+  } catch (error) {
+    next({ message: 'Error creating the action' });
+  }
 });
 
-// [PUT] /api/actions/:id
-router.put('/:id', async (req, res) => {
-    const { project_id, description, notes } = req.body;
-    if (!project_id || !description || !notes) {
-        return res.status(400).json({ message: "Missing required fields" });
-    }
-    try {
-        const updatedAction = await Actions.update(req.params.id, req.body);
-        if (updatedAction) {
-            res.status(200).json(updatedAction);
-        } else {
-            res.status(404).json({ message: "Action not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to update action" });
-    }
+router.put('/:id', md.checkActionUpdatePayload, md.checkActionId, async (req, res, next) => {
+  try {
+    const updated = await Action.update(req.params.id, req.body);
+    res.status(200).json(updated);
+  } catch (error) {
+    next({ message: 'We ran into an error updating the project' });
+  }
 });
 
-// [DELETE] /api/actions/:id
-router.delete('/:id', async (req, res) => {
-    try {
-        const count = await Actions.remove(req.params.id);
-        if (count > 0) {
-            res.status(204).end();
-        } else {
-            res.status(404).json({ message: "Action not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to delete action" });
-    }
+router.delete('/:id', md.checkActionId, async (req, res, next) => {
+  try {
+    await Action.remove(req.params.id);
+    res.status(204).end();
+  } catch (error) {
+    next({ message: 'We ran into an error removing the project' });
+  }
 });
 
 module.exports = router;

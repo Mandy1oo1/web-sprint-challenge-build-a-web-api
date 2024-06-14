@@ -1,83 +1,73 @@
-// Write your "projects" router here!
-const express = require('express');
+const router = require('express').Router();
 const Projects = require('./projects-model');
-const router = express.Router();
-const validateProjectId = require('../middleware/validateProjectId');
+const md = require('./projects-middleware')
 
-// [GET] /api/projects
-router.get('/', async (req, res) => {
-    try {
-        const projects = await Projects.get();
-        res.status(200).json(projects);
-    } catch (err) {
-        res.status(500).json({ message: "Failed to get projects" });
-    }
+router.get('/', (req, res, next) => {
+  Projects.get()
+    .then(projects => {
+      res.status(200).json(projects);
+    })
+    .catch(error => {
+      next({
+        message: 'We ran into an error retrieving the projects',
+      });
+    });
 });
 
-// [GET] /api/projects/:id
-router.get('/:id', validateProjectId, (req, res) => {
-    res.status(200).json(req.project);
+router.get('/:id', md.checkProjectId, (req, res, next) => {
+  res.json(req.project)
 });
 
-// [POST] /api/projects
-router.post('/', async (req, res) => {
-    const { name, description } = req.body;
-    if (!name || !description) {
-        return res.status(400).json({ message: "Missing required fields" });
-    }
-    try {
-        const newProject = await Projects.insert(req.body);
-        res.status(201).json(newProject);
-    } catch (err) {
-        res.status(500).json({ message: "Failed to create project" });
-    }
+router.get('/:id/actions', md.checkProjectId, (req, res, next) => {
+  Projects.getProjectActions(req.params.id)
+    .then(actions => {
+      res.status(200).json(actions);
+    })
+    .catch(error => {
+      next({
+        message: 'We ran into an error retrieving the project actions',
+      });
+    });
 });
 
-// [PUT] /api/projects/:id
-router.put('/:id', async (req, res) => {
-    const { name, description } = req.body;
-    if (!name || !description) {
-        return res.status(400).json({ message: "Missing required fields" });
-    }
-    try {
-        const updatedProject = await Projects.update(req.params.id, req.body);
-        if (updatedProject) {
-            res.status(200).json(updatedProject);
-        } else {
-            res.status(404).json({ message: "Project not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to update project" });
-    }
+router.post('/', md.checkProjectCreatePayload, (req, res, next) => {
+  Projects.insert(req.body)
+    .then(inserted => {
+      res.status(201).json(inserted);
+    })
+    .catch(error => {
+      next({
+        message: 'We ran into an error creating the project',
+      });
+    });
 });
 
-// [DELETE] /api/projects/:id
-router.delete('/:id', async (req, res) => {
-    try {
-        const count = await Projects.remove(req.params.id);
-        if (count > 0) {
-            res.status(204).end();
-        } else {
-            res.status(404).json({ message: "Project not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to delete project" });
-    }
+router.put('/:id', md.checkProjectUpdatePayload, md.checkProjectId, (req, res, next) => {
+  Projects.update(req.params.id, req.body)
+    .then(updated => {
+      if (updated) {
+        res.status(200).json(updated);
+      } else {
+        next({ status: 404, message: 'Project not found' });
+      }
+    })
+    .catch(error => {
+      next({
+        message: 'We ran into an error updating the project',
+      });
+    });
 });
 
-// [GET] /api/projects/:id/actions
-router.get('/:id/actions', async (req, res) => {
-    try {
-        const project = await Projects.get(req.params.id);
-        if (project) {
-            const actions = await Projects.getProjectActions(req.params.id);
-            res.status(200).json(actions);
-        } else {
-            res.status(404).json({ message: "Project not found" });
-        }
-    } catch (err) {
-        res.status(500).json({ message: "Failed to get actions" });
-    }
+router.delete('/:id', md.checkProjectId, (req, res, next) => {
+  Projects.remove(req.params.id)
+    .then(count => {
+      res.status(204).end();
+    })
+    .catch(error => {
+      next({
+        message: 'We ran into an error removing the project',
+      });
+    });
 });
 
 module.exports = router;
